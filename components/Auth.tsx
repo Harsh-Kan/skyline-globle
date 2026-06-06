@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
 import { UserPlus, LogIn, Key, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { supabase } from '../supabase'
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -16,71 +17,56 @@ export const AuthView: React.FC<AuthProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [userCount, setUserCount] = useState(0);
-  const [isSignupBlocked, setIsSignupBlocked] = useState(false);
-  const [maxUsers, setMaxUsers] = useState(4);
 
-  useEffect(() => {
-    const users = JSON.parse(localStorage.getItem('skyline_all_users') || '[]');
-    setUserCount(users.length);
-    
-    const signupEnabled = localStorage.getItem('skyline_signup_enabled') !== 'false';
-    setIsSignupBlocked(!signupEnabled);
-
-    const savedLimit = localStorage.getItem('skyline_max_users');
-    if (savedLimit) setMaxUsers(Number(savedLimit));
-  }, [mode]);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
 
-    const users: User[] = JSON.parse(localStorage.getItem('skyline_all_users') || '[]');
-
     if (mode === 'login') {
-      const user = users.find(u => u.username === username && u.password === password);
-      if (user) {
-        onLogin(user);
-      } else {
-        setError('Invalid username or password.');
-      }
-    } else if (mode === 'signup') {
-      if (isSignupBlocked) {
-        setError('New registrations are currently closed by the administrator.');
-        return;
-      }
-      if (users.length >= maxUsers) {
-        setError(`Limit of ${maxUsers} users reached. Already ${users.length} users have signed up.`);
-        return;
-      }
-      if (users.find(u => u.username === username)) {
-        setError('Username already taken.');
-        return;
-      }
-      const newUser: User = { 
-        username, 
-        password, 
-        isAdmin: username === 'Harsh' 
-      };
-      users.push(newUser);
-      localStorage.setItem('skyline_all_users', JSON.stringify(users));
-      setMessage('Registration successful! You can now log in.');
-      setMode('login');
-    } else if (mode === 'forgot') {
-      const userIndex = users.findIndex(u => u.username === username);
-      if (userIndex > -1) {
-        users[userIndex].password = password; 
-        localStorage.setItem('skyline_all_users', JSON.stringify(users));
-        setMessage('Password reset successful!');
-        setMode('login');
-      } else {
-        setError('User not found.');
-      }
-    }
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: username,
+    password: password,
+  });
+
+  if (error) {
+    setError(error.message);
+    return;
+  }
+
+  if (data.user) {
+    onLogin({
+      username: data.user.email || '',
+      password: '',
+      isAdmin: data.user.email === 'harshkansara99@gmail.com'
+    });
+  }
+}
+
+else if (mode === 'signup') {
+  const { error } = await supabase.auth.signUp({
+    email: username,
+    password: password,
+  });
+
+  if (error) {
+    setError(error.message);
+  } else {
+    setMessage('Check your email to confirm your account.');
+  }
+}
+
+else if (mode === 'forgot') {
+  const { error } = await supabase.auth.resetPasswordForEmail(username);
+
+  if (error) {
+    setError(error.message);
+  } else {
+    setMessage('Password reset email sent.');
+  }
+}
   };
 
-  const isSignupDisabled = userCount >= maxUsers || isSignupBlocked;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-violet-950 p-4">
@@ -99,15 +85,15 @@ export const AuthView: React.FC<AuthProps> = ({ onLogin }) => {
               LOGIN
             </button>
             <button 
-              onClick={() => { if(!isSignupDisabled) setMode('signup'); setError(null); }}
-              disabled={isSignupDisabled}
-              className={`pb-4 px-2 text-sm font-bold transition-colors ${
-                mode === 'signup' ? 'text-violet-600 border-b-2 border-violet-600' : 
-                (isSignupDisabled ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400')
-              }`}
-            >
-              SIGN UP {isSignupBlocked ? '(BLOCKED)' : (userCount >= maxUsers ? '(FULL)' : '')}
-            </button>
+  onClick={() => { setMode('signup'); setError(null); }}
+  className={`pb-4 px-2 text-sm font-bold transition-colors ${
+    mode === 'signup'
+      ? 'text-violet-600 border-b-2 border-violet-600'
+      : 'text-gray-400'
+  }`}
+>
+  SIGN UP
+</button>
             <button 
               onClick={() => { setMode('forgot'); setError(null); }}
               className={`pb-4 px-2 text-sm font-bold transition-colors ${mode === 'forgot' ? 'text-violet-600 border-b-2 border-violet-600' : 'text-gray-400'}`}
@@ -118,14 +104,16 @@ export const AuthView: React.FC<AuthProps> = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Username</label>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+  Email
+</label>
               <input 
                 type="text" 
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                placeholder="Username"
+                placeholder="Email"
               />
             </div>
 
@@ -167,16 +155,17 @@ export const AuthView: React.FC<AuthProps> = ({ onLogin }) => {
             )}
 
             <button 
-              type="submit"
-              disabled={mode === 'signup' && isSignupDisabled}
-              className={`w-full py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center space-x-2 ${
-                mode === 'signup' && isSignupDisabled ? 'bg-gray-300 cursor-not-allowed shadow-none' : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200'
-              }`}
-            >
+  type="submit"
+  className="w-full py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center space-x-2 bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200"
+>
               {mode === 'login' ? <LogIn size={20} /> : mode === 'signup' ? <UserPlus size={20} /> : <Key size={20} />}
               <span>
-                {mode === 'login' ? 'Secure Login' : mode === 'signup' ? (isSignupBlocked ? 'Sign-up Disabled' : 'Create Account') : 'Update Password'}
-              </span>
+  {mode === 'login'
+    ? 'Secure Login'
+    : mode === 'signup'
+    ? 'Create Account'
+    : 'Update Password'}
+</span>
             </button>
           </form>
         </div>

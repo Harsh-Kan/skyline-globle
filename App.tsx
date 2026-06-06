@@ -91,16 +91,17 @@ const App: React.FC = () => {
       }}
       bankConfigs={bankConfigs}
     >
-      {view === 'dashboard' && (
-        <Dashboard 
-          transactions={transactions} 
-          bankConfigs={bankConfigs} 
-          onNavigateLedger={(id) => {
-            setSelectedAccountId(id);
-            setView('ledger');
-          }}
-        />
-      )}
+      {view === 'dashboard' && currentUser && (
+  <Dashboard 
+    user={currentUser}
+    transactions={transactions} 
+    bankConfigs={bankConfigs} 
+    onNavigateLedger={(id) => {
+      setSelectedAccountId(id);
+      setView('ledger');
+    }}
+  />
+)}
       {view === 'ledger' && (
         <Ledger 
           accountId={selectedAccountId}

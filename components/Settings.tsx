@@ -31,17 +31,17 @@ export const Settings: React.FC<SettingsProps> = ({ user, bankConfigs, onSave })
     if (savedLimit) setMaxUsers(Number(savedLimit));
   }, []);
 
-  if (user.username !== 'Harsh') {
-    return (
-      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
-        <div className="inline-flex items-center justify-center p-4 bg-red-100 text-red-600 rounded-full mb-4">
-          <ShieldAlert size={48} />
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900">Permission Denied</h2>
-        <p className="text-gray-500">Only Harsh has option to access this option.</p>
+  if (!user.isAdmin) {
+  return (
+    <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+      <div className="inline-flex items-center justify-center p-4 bg-red-100 text-red-600 rounded-full mb-4">
+        <ShieldAlert size={48} />
       </div>
-    );
-  }
+      <h2 className="text-2xl font-bold text-gray-900">Permission Denied</h2>
+      <p className="text-gray-500">Only Administrator can access this option.</p>
+    </div>
+  );
+}
 
   const handleNameChange = (id: string, newName: string) => {
     setConfigs(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
